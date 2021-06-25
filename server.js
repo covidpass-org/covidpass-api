@@ -1,5 +1,7 @@
 'use strict';
 
+require('dotenv').config({path: '/run/secrets/env'})
+
 const img = require('./img')
 const util = require('./utils')
 const consts = require('./constants')
