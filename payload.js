@@ -14,17 +14,11 @@ exports.Payload = class {
 
     const dark = (color !== 'white')
     
-    let backgroundColor = consts.COLORS.white
-    let labelColor = consts.COLORS.grey
-    let foregroundColor = consts.COLORS.black
-
-    if (dark) {
-      backgroundColor = consts.COLORS[color]
-      labelColor = consts.COLORS.white
-      foregroundColor = consts.COLORS.white
-      img1x = img.img2xwhite
-      img2x = img.img2xwhite
-    }
+    let backgroundColor = dark ? consts.COLORS[color] : consts.COLORS.white
+    let labelColor = dark ? consts.COLORS.white : consts.COLORS.grey
+    let foregroundColor = dark ? consts.COLORS.white : consts.COLORS.black
+    let img1x = dark ? img.img1xwhite : img.img1xblack
+    let img2x = dark ? img.img2xwhite : img.img2xblack
 
     if (typeof rawData === 'undefined') {
       throw new Error('No raw payload')
@@ -85,6 +79,8 @@ exports.Payload = class {
     this.backgroundColor = backgroundColor
     this.labelColor = labelColor
     this.foregroundColor = foregroundColor
+    this.img1x = img1x
+    this.img2x = img2x
 
     this.raw = rawData
 

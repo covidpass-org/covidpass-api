@@ -61,13 +61,10 @@ app.post('/covid.pkpass', async (req, res) => {
     backgroundColor: payload.backgroundColor,
   })
 
-  const img1x = img.img1xblack
-  const img2x = img.img2xblack
-
-  await template.images.add("icon", img1x, '1x')
-  await template.images.add("icon", img2x, '2x')
-  await template.images.add("logo", img1x, '1x')
-  await template.images.add("logo", img2x, '2x')
+  await template.images.add("icon", payload.img1x, '1x')
+  await template.images.add("icon", payload.img2x, '2x')
+  await template.images.add("logo", payload.img1x, '1x')
+  await template.images.add("logo", payload.img2x, '2x')
 
   template.setCertificate(
     consts.SECRETS.CERT, 
