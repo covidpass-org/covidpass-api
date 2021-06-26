@@ -1,10 +1,8 @@
 exports.BASE_URL = 'https://raw.githubusercontent.com/ehn-dcc-development/ehn-dcc-valuesets/main/'
 exports.VALUE_TYPES = {
-  vaccine_medical_products: 'vaccine-medicinal-product.json',
-  country_codes: 'country-2-codes.json',
-  vaccine_auth_holders: 'vaccine-mah-manf.json',
-  vaccine_prophylaxis: 'vaccine-prophylaxis.json',
-  marketing_auth_holders: 'vaccine-mah-manf.json'
+  medicalProducts: 'vaccine-medicinal-product.json',
+  countryCodes: 'country-2-codes.json',
+  manufacturers: 'vaccine-mah-manf.json',
 }
 exports.PASS_MIME_TYPE = 'application/vnd.apple.pkpass'
 exports.SECRETS = {

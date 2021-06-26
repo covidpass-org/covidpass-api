@@ -2,47 +2,50 @@
 
 require('dotenv').config({path: '/run/secrets/env'})
 
-const img = require('./img')
-const util = require('./utils')
 const consts = require('./constants')
+const utils = require('./utils')
+const img = require('./img')
 
+const { Payload } = require('./payload')
 const { Template, constants } = require("@walletpass/pass-js")
 
 const express = require('express')
-var bodyParser = require('body-parser')
+var cors = require('cors')
 
 const PORT = 8000
 const HOST = '0.0.0.0'
+const ALLOWED_ORIGINS = ['http://localhost:3000', 'https://covidpass.marvinsextro.de']
 
 const app = express()
-app.use(bodyParser.urlencoded({ extended: false }))
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true)
+    if (ALLOWED_ORIGINS.indexOf(origin) === -1){
+      var msg = 'The CORS policy for this site does not allow access from the specified Origin.'
+      return callback(new Error(msg), false)
+    }
+    return callback(null, true)
+  }
+}))
+app.use(express.json())
 
 app.post('/covid.pkpass', async (req, res) => {
-  let data = JSON.parse(JSON.stringify(req.body))
 
-  let payload = JSON.parse(data["payload"])
-  let color = data["color"]
+  let valueSets
 
-  let dark = (color !== 'white')
-  
-  let backgroundColor = consts.COLORS.white
-  let labelColor = consts.COLORS.grey
-  let foregroundColor = consts.COLORS.black
-  let img1x = img.img1xblack
-  let img2x = img.img2xblack
-
-  if (dark) {
-    backgroundColor = consts.COLORS[color]
-    labelColor = consts.COLORS.white
-    foregroundColor = consts.COLORS.white
-    img1x = img.img2xwhite
-    img2x = img.img2xwhite
+  try {
+    valueSets = await utils.getValueSets()
+  } catch {
+    res.status(500).send('Failed to load external json files')
   }
 
-  const valueSets = await util.getValueSets()
+  let payload
 
-  let raw = payload.raw
-  let decoded = payload.decoded
+  try {
+    payload = new Payload(req.body, valueSets)
+  } catch (e) {
+    res.status(400).send('Failed to generate pass: ' + e.message)
+  }
 
   const template = new Template("generic", {
     passTypeIdentifier: consts.SECRETS.PASS_TYPE_ID,
@@ -53,10 +56,13 @@ app.post('/covid.pkpass', async (req, res) => {
     logoText: consts.NAME,
     organizationName: consts.NAME,
     description: consts.NAME,
-    labelColor: labelColor,
-    foregroundColor: foregroundColor,
-    backgroundColor: backgroundColor,
+    labelColor: payload.labelColor,
+    foregroundColor: payload.foregroundColor,
+    backgroundColor: payload.backgroundColor,
   })
+
+  const img1x = img.img1xblack
+  const img2x = img.img2xblack
 
   await template.images.add("icon", img1x, '1x')
   await template.images.add("icon", img2x, '2x')
@@ -69,42 +75,85 @@ app.post('/covid.pkpass', async (req, res) => {
   )
 
   const qrCode = {
-    "message": raw,
-    "format": "PKBarcodeFormatQR",
-    "messageEncoding": "utf-8"
+    message: payload.raw,
+    format: "PKBarcodeFormatQR",
+    messageEncoding: "utf-8"
   }
 
-  const v = decoded["-260"]["1"]["v"][0]
-  const nam = decoded["-260"]["1"]["nam"]
-  const dob = decoded["-260"]["1"]["dob"]
-
   const pass = template.createPass({
-    serialNumber: v["ci"],
+    serialNumber: payload.uvci,
     barcodes: [qrCode],
     barcode: qrCode
   });
 
-  const vaccine_name = valueSets.vaccine_medical_products["valueSetValues"][v["mp"]]["display"]
-  const country_of_vaccination = valueSets.country_codes["valueSetValues"][v["co"]]["display"]
-  const manufacturer = valueSets.marketing_auth_holders["valueSetValues"][v["ma"]]["display"]
+  pass.headerFields.add({ 
+    key: "type", 
+    label: "Certificate Type", 
+    value: payload.certificateType 
+  })
 
-  pass.headerFields.add({ key: "type", label: "Certificate Type", value: "Vaccination" })
+  pass.primaryFields.add({ 
+    key: "name", 
+    label: "Name", 
+    value: payload.name 
+  })
 
-  pass.primaryFields.add({ key: "name", label: "Name", value: nam["fn"] + ', ' + nam["gn"] })
+  pass.secondaryFields.add({ 
+    key: "dose", 
+    label: "Dose", 
+    value: payload.dose 
+  })
+  pass.secondaryFields.add({ 
+    key: "dov", 
+    label: "Date of Vaccination", 
+    value: payload.dateOfVaccination, 
+    textAlignment: constants.textDirection.RIGHT })
 
-  pass.secondaryFields.add({ key: "dose", label: "Dose", value: v["dn"] + '/' + v["sd"] })
-  pass.secondaryFields.add({ key: "dov", label: "Date of Vaccination", value: v["dt"], textAlignment: constants.textDirection.RIGHT })
+  pass.auxiliaryFields.add({ 
+    key: "vaccine", 
+    label: "Vaccine", 
+    value: payload.vaccineName 
+  })
+  pass.auxiliaryFields.add({ 
+    key: "dob", 
+    label: "Date of Birth", value: 
+    payload.dateOfBirth, 
+    textAlignment: constants.textDirection.RIGHT 
+  })
 
-  pass.auxiliaryFields.add({ key: "vaccine", label: "Vaccine", value: vaccine_name })
-  pass.auxiliaryFields.add({ key: "dob", label: "Date of Birth", value: dob, textAlignment: constants.textDirection.RIGHT })
+  pass.backFields.add({ 
+    key: "uvci", 
+    label: "Unique Certificate Identifier (UVCI)", 
+    value: payload.uvci
+  })
+  pass.backFields.add({ 
+    key: "issuer", 
+    label: "Certificate Issuer", 
+    value: payload.certificateIssuer 
+  })
+  pass.backFields.add({ 
+    key: "country", 
+    label: "Country of Vaccination", 
+    value: payload.countryOfVaccination
+  })
+  pass.backFields.add({ 
+    key: "manufacturer", 
+    label: "Manufacturer", 
+    value: payload.manufacturer 
+  })
+  pass.backFields.add({ 
+    key: "disclaimer", 
+    label: "Disclaimer", 
+    value: "This certificate is only valid in combination with the ID card of the certificate holder and expires one year + 14 days after the last dose. The validity of this certificate was not checked by CovidPass."
+  })
 
-  pass.backFields.add({ key: "uvci", label: "Unique Certificate Identifier (UVCI)", value: v["ci"]})
-  pass.backFields.add({ key: "issuer", label: "Certificate Issuer", value: v["is"] })
-  pass.backFields.add({ key: "cov", label: "Country of Vaccination", value: country_of_vaccination})
-  pass.backFields.add({ key: "ma", label: "Manufacturer", value: manufacturer })
-  pass.backFields.add({ key: "disclaimer", label: "Disclaimer", value: "This certificate is only valid in combination with the ID card of the certificate holder and expires one year + 14 days after the last dose." })
+  let buf
 
-  const buf = await pass.asBuffer();
+  try {
+    buf = await pass.asBuffer();
+  } catch {
+    res.status(500).send('Failed to create buffer from pass')
+  }
 
   res.type(consts.PASS_MIME_TYPE)
   res.status(200).send(buf)
