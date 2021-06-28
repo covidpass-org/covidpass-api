@@ -7,3 +7,7 @@ exports.SECRETS = {
   PASSPHRASE: process.env.PASSPHRASE,
 }
 exports.NAME = 'CovidPass'
+exports.HASHES = {
+  IMG: '9dcdd385e848610f020cf3bfc65ddc413beb5e87',
+  IMG2X: '4e8a383fd25dc26c686f8ac70f2a251d5bd60979'
+}

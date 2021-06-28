@@ -68,7 +68,20 @@ app.get('/signing_identity', async (req, res) => {
 
 app.post('/sign_manifest', async (req, res) => {
   const manifest = req.body['manifest']
-  
+  const manifestJson = JSON.parse(manifest)
+
+  if ((manifestJson["icon.png"] !== consts.HASHES.IMG) || 
+      (manifestJson["icon@2x.png"] !== consts.HASHES.IMG2X)) {
+    res.status(400).send('Modified icon')
+    return
+  }
+
+  if ((manifestJson["logo.png"] !== consts.HASHES.IMG) || 
+      (manifestJson["logo@2x.png"] !== consts.HASHES.IMG2X)) {
+    res.status(400).send('Modified logo')
+    return
+  }
+
   let certificate
   let key
   
